@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<title>RR Farm Manager</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext y='20' font-size='22'%3E%F0%9F%8C%B1%3C/text%3E%3C/svg%3E" />
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- React, loaded straight from a CDN — no build step, no npm, no terminal needed -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+
+<!-- ============================================================================ -->
+<!--  FIREBASE BOOTSTRAP                                                         -->
+<!--  You don't need to edit anything in this file. The app itself will ask you  -->
+<!--  for your Firebase config values on first launch and remember them.        -->
+<!-- ============================================================================ -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
+  import {
+    getFirestore, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, runTransaction,
+  } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
+  import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPKpbTkm6XbLzP_QJkhi-FWqjxbTOWd58",
+    authDomain: "rrfarm-193c4.firebaseapp.com",
+    projectId: "rrfarm-193c4",
+    storageBucket: "rrfarm-193c4.firebasestorage.app",
+    messagingSenderId: "1088257121685",
+    appId: "1:1088257121685:web:b8a9729720a2a77e91ea9c",
+  };
+
+  try {
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    window.fb = { db, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, runTransaction };
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        window.__fbReady = true;
+        window.dispatchEvent(new Event('firebase-ready'));
+      }
+    });
+
+    signInAnonymously(auth).catch((err) => {
+      window.dispatchEvent(new CustomEvent('firebase-auth-error', { detail: { message: err.message } }));
+    });
+  } catch (err) {
+    window.dispatchEvent(new CustomEvent('firebase-auth-error', { detail: { message: err.message } }));
+  }
+</script>
+
+<!-- ============================================================================ -->
+<!--  APP CODE — pre-compiled to plain JavaScript (no in-browser transform)      -->
+<!--  You shouldn't need to touch anything below this line                      -->
+<!-- ============================================================================ -->
+<script defer>
+const { useState, useEffect, useCallback, useRef } = React;
+function makeIcon(paths) {
+  return function Icon({ size = 18, className = "" }) {
+    return /* @__PURE__ */ React.createElement(
+      "svg",
+      {
+        width: size,
+        height: size,
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        className
+      },
+      paths
+    );
+  };
+}
+const LayoutDashboard = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "3", width: "8", height: "8", rx: "1" }), /* @__PURE__ */ React.createElement("rect", { x: "13", y: "3", width: "8", height: "8", rx: "1" }), /* @__PURE__ */ React.createElement("rect", { x: "3", y: "13", width: "8", height: "8", rx: "1" }), /* @__PURE__ */ React.createElement("rect", { x: "13", y: "13", width: "8", height: "8", rx: "1" })));
+const MapPin = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 21s-7-7.5-7-12a7 7 0 1 1 14 0c0 4.5-7 12-7 12z" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "9", r: "2.5" })));
+const Users = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "9", cy: "8", r: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6" }), /* @__PURE__ */ React.createElement("circle", { cx: "17", cy: "9", r: "2.3" }), /* @__PURE__ */ React.createElement("path", { d: "M15.3 14.3c2.3.5 4.2 2.4 4.2 5.7" })));
+const ClipboardList = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "5", y: "4", width: "14", height: "17", rx: "2" }), /* @__PURE__ */ React.createElement("rect", { x: "9", y: "2", width: "6", height: "3", rx: "1" }), /* @__PURE__ */ React.createElement("path", { d: "M8 11h8M8 15h8M8 19h5" })));
+const Boxes = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M3 7l9-4 9 4-9 4-9-4z" }), /* @__PURE__ */ React.createElement("path", { d: "M3 7v10l9 4 9-4V7" }), /* @__PURE__ */ React.createElement("path", { d: "M12 11v10" })));
+const CalendarCheck = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "5", width: "18", height: "16", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18" }), /* @__PURE__ */ React.createElement("path", { d: "M8 3v4M16 3v4" }), /* @__PURE__ */ React.createElement("path", { d: "M9 14l2 2 4-4" })));
+const Plus = makeIcon(/* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" }));
+const Pencil = makeIcon(/* @__PURE__ */ React.createElement("path", { d: "M4 20l4-1 11-11-3-3L5 16l-1 4z" }));
+const Trash2 = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M4 7h16" }), /* @__PURE__ */ React.createElement("path", { d: "M9 7V4h6v3" }), /* @__PURE__ */ React.createElement("path", { d: "M6 7l1 13h10l1-13" }), /* @__PURE__ */ React.createElement("path", { d: "M10 11v6M14 11v6" })));
+const X = makeIcon(/* @__PURE__ */ React.createElement("path", { d: "M5 5l14 14M19 5L5 19" }));
+const AlertTriangle = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 3l10 18H2L12 3z" }), /* @__PURE__ */ React.createElement("path", { d: "M12 9.5v4" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "17", r: "0.9", fill: "currentColor", stroke: "none" })));
+const CheckCircle2 = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "9" }), /* @__PURE__ */ React.createElement("path", { d: "M8 12l3 3 5-6" })));
+const Clock = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "9" }), /* @__PURE__ */ React.createElement("path", { d: "M12 7v5l4 2" })));
+const Sprout = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M12 21V11" }), /* @__PURE__ */ React.createElement("path", { d: "M5 5c4 0 7 2 7 6-4 0-7-2-7-6z" }), /* @__PURE__ */ React.createElement("path", { d: "M19 5c-4 0-7 2-7 6 4 0 7-2 7-6z" })));
+const Droplets = makeIcon(/* @__PURE__ */ React.createElement("path", { d: "M12 3c3 4 6 7 6 10a6 6 0 1 1-12 0c0-3 3-6 6-10z" }));
+const Tractor = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "7", cy: "18", r: "3" }), /* @__PURE__ */ React.createElement("circle", { cx: "18", cy: "18", r: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M4 18V9h6l3 4h4v5" }), /* @__PURE__ */ React.createElement("path", { d: "M10 9V6h3v3" })));
+const Wrench = makeIcon(/* @__PURE__ */ React.createElement("path", { d: "M21 3a4 4 0 0 0-5.7 3.6L7 14.9a2 2 0 1 0 2.1 2.1l8.3-8.3A4 4 0 0 0 21 3z" }));
+const Fuel = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M4 21V8a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v13" }), /* @__PURE__ */ React.createElement("path", { d: "M4 13h10" }), /* @__PURE__ */ React.createElement("path", { d: "M16 9l3 3v6a1.5 1.5 0 0 1-3 0" })));
+const Package = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M21 8l-9-5-9 5 9 5 9-5z" }), /* @__PURE__ */ React.createElement("path", { d: "M3 8v9l9 5 9-5V8" }), /* @__PURE__ */ React.createElement("path", { d: "M12 13v9" })));
+const RefreshCcw = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M3 12a9 9 0 0 1 15-6.7L21 8" }), /* @__PURE__ */ React.createElement("path", { d: "M21 3v5h-5" }), /* @__PURE__ */ React.createElement("path", { d: "M21 12a9 9 0 0 1-15 6.7L3 16" }), /* @__PURE__ */ React.createElement("path", { d: "M3 21v-5h5" })));
+const FileDown = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z" }), /* @__PURE__ */ React.createElement("path", { d: "M14 3v5h5" }), /* @__PURE__ */ React.createElement("path", { d: "M12 11v6M9.5 14.5L12 17l2.5-2.5" })));
+const Wifi = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M2 8.5a16 16 0 0 1 20 0" }), /* @__PURE__ */ React.createElement("path", { d: "M5 12.5a11 11 0 0 1 14 0" }), /* @__PURE__ */ React.createElement("path", { d: "M8.5 16.5a6 6 0 0 1 7 0" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "20", r: "1", fill: "currentColor", stroke: "none" })));
+const WifiOff = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { d: "M2 2l20 20" }), /* @__PURE__ */ React.createElement("path", { d: "M8.5 16.5a6 6 0 0 1 7 0" }), /* @__PURE__ */ React.createElement("path", { d: "M5 12.5a11 11 0 0 1 4.5-2.5" }), /* @__PURE__ */ React.createElement("path", { d: "M19 12.5a11 11 0 0 0-3-2.2" }), /* @__PURE__ */ React.createElement("path", { d: "M2 8.5a16 16 0 0 1 5.5-3" }), /* @__PURE__ */ React.createElement("path", { d: "M22 8.5a16 16 0 0 0-4-2.7" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "20", r: "1", fill: "currentColor", stroke: "none" })));
+const Settings = makeIcon(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M12 3v3M12 18v3M5 5l2 2M17 17l2 2M3 12h3M18 12h3M5 19l2-2M17 7l2-2" })));
+const PASSWORD = "Ritesh@18227";
+const EXPORT_INTERVAL_DAYS = 5;
+const RESOURCE_CATEGORIES = ["Fertilizer", "Pesticide", "Seeds", "Tools", "Equipment", "Fuel", "Others"];
+const UNITS = ["kg", "L", "grams", "pieces", "tons"];
+const TASK_TYPES = ["Spray", "Fertigation", "Irrigation", "Others"];
+const CATEGORY_ICON = {
+  Fertilizer: Sprout,
+  Pesticide: Droplets,
+  Seeds: Package,
+  Tools: Wrench,
+  Equipment: Tractor,
+  Fuel,
+  Others: Boxes
+};
+const NAV = [
+  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { key: "plots", label: "Plots", icon: MapPin },
+  { key: "labour", label: "Labour", icon: Users },
+  { key: "tasks", label: "Tasks", icon: ClipboardList },
+  { key: "resources", label: "Resources", icon: Boxes },
+  { key: "attendance", label: "Attendance", icon: CalendarCheck }
+];
+function isLowStock(resource) {
+  const q = Number(resource.quantity);
+  if (resource.unit === "kg" || resource.unit === "L") return q < 10;
+  if (resource.unit === "grams") return q < 100;
+  if (resource.unit === "pieces") return q < 5;
+  return false;
+}
+function nextId(list, key, prefix, pad, start) {
+  let max = start - 1;
+  list.forEach((item) => {
+    const raw = item[key];
+    if (typeof raw === "string" && raw.startsWith(prefix + "_")) {
+      const n = parseInt(raw.slice(prefix.length + 1), 10);
+      if (!isNaN(n) && n > max) max = n;
+    }
+  });
+  return `${prefix}_${String(max + 1).padStart(pad, "0")}`;
+}
+function dateKey(d) {
+  const dt = new Date(d);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const day = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function todayKey() {
+  return dateKey(/* @__PURE__ */ new Date());
+}
+function yesterdayKey() {
+  const d = /* @__PURE__ */ new Date();
+  d.setDate(d.getDate() - 1);
+  return dateKey(d);
+}
+function prettyDate(key) {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(void 0, { month: "short", day: "numeric", year: "numeric" });
+}
+function daysBetween(startKey, endKey) {
+  return Math.round((new Date(endKey) - new Date(startKey)) / 864e5);
+}
+function downloadTextFile(filename, text) {
+  const blob = new Blob([text], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1e3);
+}
+function buildReport(periodStartKey, periodEndKey, { plots, labourers, resources, tasks, attendance }) {
+  const inRange = (d) => d >= periodStartKey && d <= periodEndKey;
+  const periodTasks = tasks.filter((t) => inRange(t.date));
+  const periodAttendance = attendance.filter((a) => inRange(a.date));
+  const low = resources.filter(isLowStock);
+  const line = "-".repeat(50);
+  const L = [];
+  L.push("=".repeat(50));
+  L.push("RR FARM MANAGER \u2014 PERIODIC REPORT");
+  L.push(`Period: ${periodStartKey} to ${periodEndKey}`);
+  L.push(`Generated: ${(/* @__PURE__ */ new Date()).toLocaleString()}`);
+  L.push("=".repeat(50), "");
+  L.push("SUMMARY");
+  L.push(`- Tasks logged: ${periodTasks.length} (Completed: ${periodTasks.filter((t) => t.status === "Completed").length}, Pending: ${periodTasks.filter((t) => t.status === "Pending").length})`);
+  L.push(`- Attendance entries: ${periodAttendance.length}`);
+  L.push(`- Total plots: ${plots.length} | Total labourers: ${labourers.length} | Resources tracked: ${resources.length}`);
+  L.push(`- Currently low on stock: ${low.length ? low.map((r) => `${r.name} (${r.quantity} ${r.unit})`).join(", ") : "None"}`);
+  L.push("", line, "TASKS THIS PERIOD", line);
+  if (periodTasks.length === 0) L.push("No tasks logged in this period.");
+  periodTasks.forEach((t) => {
+    L.push(`[${t.date}] ${t.plotName} \u2014 ${t.taskType} \u2014 ${t.status} (${t.taskId})`);
+    if (t.labourerIds && t.labourerIds.length) L.push(`   Labourers: ${t.labourerIds.map((id) => labourers.find((l) => l.labourId === id)?.name).filter(Boolean).join(", ")}`);
+    if (t.products && t.products.length) L.push(`   Products: ${t.products.map((p) => `${p.name} (${p.quantity})`).join(", ")}`);
+    if (t.note) L.push(`   Note: ${t.note}`);
+  });
+  L.push("", line, "ATTENDANCE THIS PERIOD", line);
+  if (periodAttendance.length === 0) L.push("No attendance marked in this period.");
+  [...new Set(periodAttendance.map((a) => a.date))].sort().forEach((d) => {
+    L.push(`${d}:`);
+    periodAttendance.filter((a) => a.date === d).forEach((a) => {
+      L.push(`   ${a.labourName} \u2014 ${a.status}${a.reason ? " (" + a.reason + ")" : ""}`);
+    });
+  });
+  L.push("", line, "CURRENT PLOTS", line);
+  if (plots.length === 0) L.push("No plots registered.");
+  plots.forEach((p) => L.push(`${p.plotId} \u2014 ${p.plotName} (${p.cropType})`));
+  L.push("", line, "CURRENT LABOUR ROSTER", line);
+  if (labourers.length === 0) L.push("No labourers registered.");
+  labourers.forEach((l) => L.push(`${l.labourId} \u2014 ${l.name} (joined ${l.dateOfJoining})`));
+  L.push("", line, "CURRENT RESOURCE INVENTORY", line);
+  if (resources.length === 0) L.push("No resources tracked.");
+  resources.forEach((r) => L.push(`${r.resourceId} \u2014 ${r.name} (${r.category}): ${r.quantity} ${r.unit}${isLowStock(r) ? "  [LOW STOCK]" : ""}`));
+  L.push("", "=".repeat(50), "End of report.");
+  return L.join("\n");
+}
+function PageHeader({ title, subtitle, action }) {
+  return /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap items-start justify-between gap-3 mb-6" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", { className: "text-2xl font-bold text-stone-800" }, title), subtitle && /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-500 mt-0.5" }, subtitle)), action && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: action.onClick,
+      className: "flex items-center gap-1.5 bg-green-700 hover:bg-green-800 text-white text-sm font-medium px-4 py-2.5 rounded-lg shadow-sm"
+    },
+    /* @__PURE__ */ React.createElement(Plus, { size: 16 }),
+    " ",
+    action.label
+  ));
+}
+function StatCard({ icon: Icon, label, value, tone }) {
+  const tones = {
+    blue: "bg-blue-50 text-blue-600",
+    green: "bg-green-50 text-green-700",
+    amber: "bg-amber-50 text-amber-600"
+  };
+  return /* @__PURE__ */ React.createElement("div", { className: "bg-white rounded-xl border border-stone-200 p-5 flex items-center gap-4 shadow-sm" }, /* @__PURE__ */ React.createElement("div", { className: `w-11 h-11 rounded-lg flex items-center justify-center ${tones[tone]}` }, /* @__PURE__ */ React.createElement(Icon, { size: 20 })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "text-2xl font-bold text-stone-800 leading-none" }, value), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-500 mt-1" }, label)));
+}
+function Badge({ children, tone }) {
+  const tones = {
+    amber: "bg-amber-100 text-amber-800",
+    green: "bg-green-100 text-green-800",
+    red: "bg-red-100 text-red-700",
+    stone: "bg-stone-100 text-stone-600"
+  };
+  return /* @__PURE__ */ React.createElement("span", { className: `inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${tones[tone]}` }, children);
+}
+function EmptyState({ icon: Icon, title, subtitle }) {
+  return /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center justify-center text-center py-16 text-stone-400 bg-white rounded-xl border border-dashed border-stone-300" }, /* @__PURE__ */ React.createElement(Icon, { size: 32, className: "mb-3 text-stone-300" }), /* @__PURE__ */ React.createElement("p", { className: "font-medium text-stone-500" }, title), subtitle && /* @__PURE__ */ React.createElement("p", { className: "text-sm mt-1 max-w-xs" }, subtitle));
+}
+function Field({ label, children }) {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block text-sm font-medium text-stone-600 mb-1" }, label), children);
+}
+const inputClass = "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 bg-white";
+function Modal({ title, onClose, children, wide }) {
+  return /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-4", style: { backgroundColor: "rgba(28,25,23,0.45)" }, onClick: onClose }, /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      className: `w-full ${wide ? "max-w-lg" : "max-w-md"} bg-white rounded-2xl shadow-xl overflow-y-auto`,
+      style: { maxHeight: "90vh" },
+      onClick: (e) => e.stopPropagation()
+    },
+    /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between px-5 py-4 border-b border-stone-200 sticky top-0 bg-white" }, /* @__PURE__ */ React.createElement("h3", { className: "font-semibold text-stone-800 text-lg" }, title), /* @__PURE__ */ React.createElement("button", { onClick: onClose, className: "text-stone-400 hover:text-stone-600" }, /* @__PURE__ */ React.createElement(X, { size: 20 }))),
+    /* @__PURE__ */ React.createElement("div", { className: "p-5" }, children)
+  ));
+}
+function ConfirmModal({ title, message, confirmLabel, tone, onConfirm, onClose }) {
+  return /* @__PURE__ */ React.createElement(Modal, { title: title || "Are you sure?", onClose }, /* @__PURE__ */ React.createElement("p", { className: "text-stone-600 text-sm mb-5 whitespace-pre-line" }, message), /* @__PURE__ */ React.createElement("div", { className: "flex justify-end gap-2" }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, className: "px-4 py-2 rounded-lg text-sm font-medium text-stone-600 hover:bg-stone-100" }, "Cancel"), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => {
+        onConfirm();
+        onClose();
+      },
+      className: `px-4 py-2 rounded-lg text-sm font-medium text-white ${tone === "danger" ? "bg-red-600 hover:bg-red-700" : "bg-green-700 hover:bg-green-800"}`
+    },
+    confirmLabel || "Confirm"
+  )));
+}
+function PasswordModal({ actionLabel, onSuccess, onClose }) {
+  const [value, setValue] = useState("");
+  const [error, setError] = useState("");
+  function submit(e) {
+    e.preventDefault();
+    if (value === PASSWORD) {
+      onSuccess();
+      onClose();
+    } else setError("Incorrect password. Try again.");
+  }
+  return /* @__PURE__ */ React.createElement(Modal, { title: "Owner password required", onClose }, /* @__PURE__ */ React.createElement("form", { onSubmit: submit }, /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-500 mb-3" }, "Enter the owner password to ", actionLabel, "."), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      autoFocus: true,
+      type: "password",
+      value,
+      onChange: (e) => {
+        setValue(e.target.value);
+        setError("");
+      },
+      className: inputClass,
+      placeholder: "Password"
+    }
+  ), error && /* @__PURE__ */ React.createElement("p", { className: "text-red-600 text-xs mt-2" }, error), /* @__PURE__ */ React.createElement("div", { className: "flex justify-end gap-2 mt-4" }, /* @__PURE__ */ React.createElement("button", { type: "button", onClick: onClose, className: "px-4 py-2 rounded-lg text-sm font-medium text-stone-600 hover:bg-stone-100" }, "Cancel"), /* @__PURE__ */ React.createElement("button", { type: "submit", className: "px-4 py-2 rounded-lg text-sm font-medium text-white bg-green-700 hover:bg-green-800" }, "Unlock"))));
+}
+function ToastStack({ toasts }) {
+  return /* @__PURE__ */ React.createElement("div", { className: "fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-xs w-full" }, toasts.map((t) => /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      key: t.id,
+      className: `px-4 py-3 rounded-lg shadow-lg text-sm font-medium text-white ${t.type === "error" ? "bg-red-600" : "bg-green-700"}`
+    },
+    t.message
+  )));
+}
+function Sidebar({ active, onChange, onReset, onExportNow, online }) {
+  return /* @__PURE__ */ React.createElement("nav", { className: "bg-green-950 text-stone-100 md:w-60 md:fixed md:top-0 md:left-0 md:h-screen flex md:flex-col z-30 shrink-0" }, /* @__PURE__ */ React.createElement("div", { className: "hidden md:flex items-center justify-between gap-2 px-5 py-5 border-b border-green-800" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement(Sprout, { size: 22, className: "text-green-300" }), /* @__PURE__ */ React.createElement("span", { className: "font-bold text-base tracking-tight" }, "Farm Manager")), online ? /* @__PURE__ */ React.createElement(Wifi, { size: 15, className: "text-green-400" }) : /* @__PURE__ */ React.createElement(WifiOff, { size: 15, className: "text-amber-400" })), /* @__PURE__ */ React.createElement("div", { className: "flex md:flex-col gap-1 overflow-x-auto md:overflow-visible px-2 md:px-3 py-2 md:py-4 w-full md:flex-1" }, NAV.map((item) => {
+    const Icon = item.icon;
+    const isActive = active === item.key;
+    return /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: item.key,
+        onClick: () => onChange(item.key),
+        className: `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${isActive ? "bg-green-700 text-white" : "text-green-200 hover:bg-green-900 hover:text-white"}`
+      },
+      /* @__PURE__ */ React.createElement(Icon, { size: 18 }),
+      /* @__PURE__ */ React.createElement("span", null, item.label)
+    );
+  })), /* @__PURE__ */ React.createElement("div", { className: "hidden md:block px-3 py-4 border-t border-green-800 space-y-1" }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: onExportNow,
+      className: "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-green-300 hover:bg-green-900 hover:text-white w-full"
+    },
+    /* @__PURE__ */ React.createElement(FileDown, { size: 14 }),
+    " Export report now"
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: onReset,
+      className: "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-green-300 hover:bg-green-900 hover:text-white w-full"
+    },
+    /* @__PURE__ */ React.createElement(RefreshCcw, { size: 14 }),
+    " Reset all data"
+  )));
+}
+function DashboardPage({ plots, labourers, tasks }) {
+  const pending = tasks.filter((t) => t.status === "Pending").length;
+  const completed = tasks.filter((t) => t.status === "Completed").length;
+  const recent = [...tasks].slice(-5).reverse();
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(PageHeader, { title: "Dashboard", subtitle: "A quick snapshot of farm status, updated live." }), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" }, /* @__PURE__ */ React.createElement(StatCard, { icon: MapPin, label: "Total Plots", value: plots.length, tone: "blue" }), /* @__PURE__ */ React.createElement(StatCard, { icon: Users, label: "Total Labourers", value: labourers.length, tone: "green" }), /* @__PURE__ */ React.createElement(StatCard, { icon: Clock, label: "Pending Tasks", value: pending, tone: "amber" }), /* @__PURE__ */ React.createElement(StatCard, { icon: CheckCircle2, label: "Completed Tasks", value: completed, tone: "green" })), /* @__PURE__ */ React.createElement("h2", { className: "text-sm font-semibold text-stone-500 uppercase tracking-wide mb-3" }, "Recent tasks"), recent.length === 0 ? /* @__PURE__ */ React.createElement(EmptyState, { icon: ClipboardList, title: "No tasks yet", subtitle: "Create a task from the Tasks page to see it show up here." }) : /* @__PURE__ */ React.createElement("div", { className: "bg-white rounded-xl border border-stone-200 divide-y divide-stone-100 shadow-sm" }, recent.map((t) => /* @__PURE__ */ React.createElement("div", { key: t._id, className: "flex items-center justify-between px-4 py-3" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "text-sm font-medium text-stone-800" }, t.plotName, " \u2014 ", t.taskType), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-stone-400" }, t.date, " \xB7 ", t.taskId)), /* @__PURE__ */ React.createElement(Badge, { tone: t.status === "Completed" ? "green" : "amber" }, t.status)))));
+}
+function PlotsPage({ plots, savePlot, deletePlot, pushToast, confirm }) {
+  const [dialog, setDialog] = useState(null);
+  const [form, setForm] = useState({ plotName: "", cropType: "" });
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  function openAdd() {
+    setForm({ plotName: "", cropType: "" });
+    setError("");
+    setDialog({ mode: "add" });
+  }
+  function openEdit(p) {
+    setForm({ plotName: p.plotName, cropType: p.cropType });
+    setError("");
+    setDialog({ mode: "edit", plot: p });
+  }
+  async function save(e) {
+    e.preventDefault();
+    const name = form.plotName.trim();
+    const crop = form.cropType.trim();
+    if (!name || !crop) {
+      setError("Both fields are required.");
+      return;
+    }
+    const dup = plots.some((p) => p.plotName.toLowerCase() === name.toLowerCase() && (!dialog.plot || p.plotId !== dialog.plot.plotId));
+    if (dup) {
+      setError("A plot with this name already exists.");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (dialog.mode === "add") {
+        const plotId = nextId(plots, "plotId", "plot", 2, 1);
+        await savePlot({ plotId, plotName: name, cropType: crop });
+        pushToast(`Plot "${name}" added.`);
+      } else {
+        await savePlot({ plotId: dialog.plot.plotId, plotName: name, cropType: crop });
+        pushToast(`Plot "${name}" updated.`);
+      }
+      setDialog(null);
+    } catch (err) {
+      setError("Could not save \u2014 check your connection and try again.");
+    }
+    setBusy(false);
+  }
+  function remove(p) {
+    confirm({
+      title: "Delete plot?",
+      message: `This will permanently remove "${p.plotName}". This can't be undone.`,
+      confirmLabel: "Delete",
+      tone: "danger",
+      onConfirm: async () => {
+        try {
+          await deletePlot(p.plotId);
+          pushToast(`Plot "${p.plotName}" deleted.`, "error");
+        } catch (err) {
+          pushToast("Could not delete \u2014 check your connection.", "error");
+        }
+      }
+    });
+  }
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(PageHeader, { title: "Plots", subtitle: "Manage your agricultural plots and fields.", action: { label: "Add Plot", onClick: openAdd } }), plots.length === 0 ? /* @__PURE__ */ React.createElement(EmptyState, { icon: MapPin, title: "No plots yet", subtitle: 'Tap "Add Plot" to register your first field.' }) : /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" }, plots.map((p) => /* @__PURE__ */ React.createElement("div", { key: p.plotId, className: "bg-white rounded-xl border border-stone-200 border-l-4 border-l-blue-500 p-4 shadow-sm" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-start justify-between" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "font-semibold text-stone-800" }, p.plotName), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-500" }, p.cropType)), /* @__PURE__ */ React.createElement("div", { className: "flex gap-1" }, /* @__PURE__ */ React.createElement("button", { onClick: () => openEdit(p), className: "p-1.5 text-stone-400 hover:text-green-700 hover:bg-green-50 rounded-lg" }, /* @__PURE__ */ React.createElement(Pencil, { size: 15 })), /* @__PURE__ */ React.createElement("button", { onClick: () => remove(p), className: "p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg" }, /* @__PURE__ */ React.createElement(Trash2, { size: 15 })))), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-stone-400 mt-3 font-mono" }, p.plotId)))), dialog && /* @__PURE__ */ React.createElement(Modal, { title: dialog.mode === "add" ? "Add Plot" : "Edit Plot", onClose: () => setDialog(null) }, /* @__PURE__ */ React.createElement("form", { onSubmit: save, className: "space-y-4" }, /* @__PURE__ */ React.createElement(Field, { label: "Plot Name" }, /* @__PURE__ */ React.createElement("input", { autoFocus: true, value: form.plotName, onChange: (e) => setForm({ ...form, plotName: e.target.value }), placeholder: "e.g., Main Field A", className: inputClass })), /* @__PURE__ */ React.createElement(Field, { label: "Crop Type" }, /* @__PURE__ */ React.createElement("input", { value: form.cropType, onChange: (e) => setForm({ ...form, cropType: e.target.value }), placeholder: "e.g., Tomatoes", className: inputClass })), error && /* @__PURE__ */ React.createElement("p", { className: "text-red-600 text-sm" }, error), /* @__PURE__ */ React.createElement("div", { className: "flex justify-end gap-2 pt-1" }, /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setDialog(null), className: "px-4 py-2 rounded-lg text-sm font-medium text-stone-600 hover:bg-stone-100" }, "Cancel"), /* @__PURE__ */ React.createElement("button", { type: "submit", disabled: busy, className: "px-4 py-2 rounded-lg text-sm font-medium text-white bg-green-700 hover:bg-green-800 disabled:opacity-60" }, busy ? "Saving\u2026" : "Save")))));
+}
+function LabourPage({ labourers, saveLabourer, deleteLabourer, pushToast, confirm }) {
+  const [dialog, setDialog] = useState(null);
+  const [form, setForm] = useState({ name: "", dateOfJoining: todayKey() });
+  const [error, setError] = useState("");
+  function openAdd() {
+    setForm({ name: "", dateOfJoining: todayKey() });
+    setError("");
+    setDialog({ mode: "add" });
+  }
+  function openEdit(l) {
+    setForm({ name: l.name, dateOfJoining: l.dateOfJoining });
+    setError("");
+    setDialog({ mode: "edit", labourer: l });
+  }
+  function requestSave(e) {
+    e.preventDefault();
+    const name = form.name.trim();
+    if (!name) {
+      setError("Name is required.");
+      return;
+    }
+    const dup = labourers.some((l) => l.name.toLowerCase() === name.toLowerCase() && (!dialog.labourer || l.labourId !== dialog.labourer.labourId));
+    if (dup) {
+      setError("A labourer with this name already exists.");
+      return;
+    }
+    confirm({
+      title: dialog.mode === "add" ? "Add labourer?" : "Save changes?",
+      message: `${name} \u2014 joining ${form.dateOfJoining}.
+Confirm to save this entry.`,
+      confirmLabel: "Save",
+      onConfirm: async () => {
+        try {
+          if (dialog.mode === "add") {
+            const labourId = nextId(labourers, "labourId", "lab", 3, 101);
+            await saveLabourer({ labourId, name, dateOfJoining: form.dateOfJoining });
+            pushToast(`${name} added to the labour roster.`);
+          } else {
+            await saveLabourer({ labourId: dialog.labourer.labourId, name, dateOfJoining: form.dateOfJoining });
+            pushToast(`${name} updated.`);
+          }
+          setDialog(null);
+        } catch (err) {
+          pushToast("Could not save \u2014 check your connection.", "error");
+        }
+      }
+    });
+  }
+  function remove(l) {
+    confirm({
+      title: "Remove labourer?",
+      message: `This will permanently remove ${l.name} from the roster.`,
+      confirmLabel: "Remove",
+      tone: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteLabourer(l.labourId);
+          pushToast(`${l.name} removed.`, "error");
+        } catch (err) {
+          pushToast("Could not remove \u2014 check your connection.", "error");
+        }
+      }
+    });
+  }
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(PageHeader, { title: "Labour", subtitle: "Track every worker on the farm.", action: { label: "Add Labourer", onClick: openAdd } }), labourers.length === 0 ? /* @__PURE__ */ React.createElement(EmptyState, { icon: Users, title: "No labourers yet", subtitle: 'Tap "Add Labourer" to register your first worker.' }) : /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" }, labourers.map((l) => /* @__PURE__ */ React.createElement("div", { key: l.labourId, className: "bg-white rounded-xl border border-stone-200 border-l-4 border-l-green-500 p-4 shadow-sm" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-start justify-between" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "font-semibold text-stone-800" }, l.name), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-500" }, "Joined ", l.dateOfJoining)), /* @__PURE__ */ React.createElement("div", { className: "flex gap-1" }, /* @__PURE__ */ React.createElement("button", { onClick: () => openEdit(l), className: "p-1.5 text-stone-400 hover:text-green-700 hover:bg-green-50 rounded-lg" }, /* @__PURE__ */ React.createElement(Pencil, { size: 15 })), /* @__PURE__ */ React.createElement("button", { onClick: () => remove(l), className: "p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg" }, /* @__PURE__ */ React.createElement(Trash2, { size: 15 })))), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-stone-400 mt-3 font-mono" }, l.labourId)))), dialog && /* @__PURE__ */ React.createElement(Modal, { title: dialog.mode === "add" ? "Add Labourer" : "Edit Labourer", onClose: () => setDialog(null) }, /* @__PURE__ */ React.createElement("form", { onSubmit: requestSave, className: "space-y-4" }, /* @__PURE__ */ React.createElement(Field, { label: "Name" }, /* @__PURE__ */ React.createElement("input", { autoFocus: true, value: form.name, onChange: (e) => setForm({ ...form, name: e.target.value }), placeholder: "Worker's name", className: inputClass })), /* @__PURE__ */ React.createElement(Field, { label: "Date of Joining" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: form.dateOfJoining, onChange: (e) => setForm({ ...form, dateOfJoining: e.target.value }), className: inputClass })), error && /* @__PURE__ */ React.createElement("p", { className: "text-red-600 text-sm" }, error), /* @__PURE__ */ React.createElement("div", { className: "flex justify-end gap-2 pt-1" }, /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setDialog(null), className: "px-4 py-2 rounded-lg text-sm font-medium text-stone-600 hover:bg-stone-100" }, "Cancel"), /* @__PURE__ */ React.createElement("button", { type: "submit", className: "px-4 py-2 rounded-lg text-sm font-medium text-white bg-green-700 hover:bg-green-800" }, "Continue")))));
+}
+function ResourcesPage({ resources, saveResource, deleteResource, pushToast, confirm, requestPassword }) {
+  const [dialog, setDialog] = useState(null);
+  const [form, setForm] = useState({ category: RESOURCE_CATEGORIES[0], name: "", quantity: "", unit: UNITS[0] });
+  const [error, setError] = useState("");
+  const lowStockItems = resources.filter(isLowStock);
+  function openAdd() {
+    setForm({ category: RESOURCE_CATEGORIES[0], name: "", quantity: "", unit: UNITS[0] });
+    setError("");
+    setDialog({ mode: "add" });
+  }
+  function openEditFlow(r) {
+    requestPassword("edit this resource", () => {
+      setForm({ category: r.category, name: r.name, quantity: String(r.quantity), unit: r.unit });
+      setError("");
+      setDialog({ mode: "edit", resource: r });
+    });
+  }
+  async function save(e) {
+    e.preventDefault();
+    const name = form.name.trim();
+    const qty = Number(form.quantity);
+    if (!name || form.quantity === "" || isNaN(qty) || qty < 0) {
+      setError("Enter a valid name and a non-negative quantity.");
+      return;
+    }
+    try {
+      if (dialog.mode === "add") {
+        const resourceId = nextId(resources, "resourceId", "res", 3, 1);
+        await saveResource({ resourceId, category: form.category, name, quantity: qty, unit: form.unit });
+        pushToast(`${name} added to inventory.`);
+      } else {
+        await saveResource({ resourceId: dialog.resource.resourceId, category: form.category, name, quantity: qty, unit: form.unit });
+        pushToast(`${name} updated.`);
+      }
+      setDialog(null);
+    } catch (err) {
+      setError("Could not save \u2014 check your connection and try again.");
+    }
+  }
+  function removeFlow(r) {
+    requestPassword("delete this resource", () => {
+      confirm({
+        title: "Delete resource?",
+        message: `Permanently remove "${r.name}" from inventory?`,
+        confirmLabel: "Delete",
+        tone: "danger",
+        onConfirm: async () => {
+          try {
+            await deleteResource(r.resourceId);
+            pushToast(`${r.name} deleted.`, "error");
+          } catch (err) {
+            pushToast("Could not delete \u2014 check your connection.", "error");
+          }
+        }
+      });
+    });
+  }
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(PageHeader, { title: "Resources", subtitle: "Inventory for fertilizers, pesticides, seeds, fuel, and more.", action: { label: "Add Resource", onClick: openAdd } }), lowStockItems.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-5 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3" }, /* @__PURE__ */ React.createElement(AlertTriangle, { className: "text-red-600 shrink-0 mt-0.5", size: 20 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "font-semibold text-red-700 text-sm" }, "Low stock alert"), /* @__PURE__ */ React.createElement("p", { className: "text-red-600 text-sm mt-0.5" }, lowStockItems.map((r) => `${r.name} (${r.quantity} ${r.unit})`).join(", "), " running low \u2014 consider restocking soon."))), resources.length === 0 ? /* @__PURE__ */ React.createElement(EmptyState, { icon: Boxes, title: "No resources yet", subtitle: 'Tap "Add Resource" to start tracking inventory.' }) : /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" }, resources.map((r) => {
+    const Icon = CATEGORY_ICON[r.category] || Boxes;
+    const low = isLowStock(r);
+    return /* @__PURE__ */ React.createElement("div", { key: r.resourceId, className: `bg-white rounded-xl border border-stone-200 border-l-4 ${low ? "border-l-red-500" : "border-l-stone-300"} p-4 shadow-sm` }, /* @__PURE__ */ React.createElement("div", { className: "flex items-start justify-between" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-start gap-3" }, /* @__PURE__ */ React.createElement("div", { className: "w-9 h-9 rounded-lg bg-stone-100 flex items-center justify-center text-stone-600 shrink-0" }, /* @__PURE__ */ React.createElement(Icon, { size: 16 })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "font-semibold text-stone-800" }, r.name), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-500" }, r.category))), /* @__PURE__ */ React.createElement("div", { className: "flex gap-1" }, /* @__PURE__ */ React.createElement("button", { onClick: () => openEditFlow(r), title: "Password protected", className: "p-1.5 text-stone-400 hover:text-green-700 hover:bg-green-50 rounded-lg" }, /* @__PURE__ */ React.createElement(Pencil, { size: 15 })), /* @__PURE__ */ React.createElement("button", { onClick: () => removeFlow(r), title: "Password protected", className: "p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg" }, /* @__PURE__ */ React.createElement(Trash2, { size: 15 })))), /* @__PURE__ */ React.createElement("p", { className: `text-sm font-medium mt-3 ${low ? "text-red-600" : "text-stone-700"}` }, r.quantity, " ", r.unit, " in stock"), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-stone-400 mt-1 font-mono" }, r.resourceId));
+  })), dialog && /* @__PURE__ */ React.createElement(Modal, { title: dialog.mode === "add" ? "Add Resource" : "Edit Resource", onClose: () => setDialog(null) }, /* @__PURE__ */ React.createElement("form", { onSubmit: save, className: "space-y-4" }, /* @__PURE__ */ React.createElement(Field, { label: "Category" }, /* @__PURE__ */ React.createElement("select", { value: form.category, onChange: (e) => setForm({ ...form, category: e.target.value }), className: inputClass }, RESOURCE_CATEGORIES.map((c) => /* @__PURE__ */ React.createElement("option", { key: c, value: c }, c)))), /* @__PURE__ */ React.createElement(Field, { label: "Name" }, /* @__PURE__ */ React.createElement("input", { autoFocus: true, value: form.name, onChange: (e) => setForm({ ...form, name: e.target.value }), placeholder: "e.g., Urea", className: inputClass })), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-3" }, /* @__PURE__ */ React.createElement(Field, { label: "Quantity" }, /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", value: form.quantity, onChange: (e) => setForm({ ...form, quantity: e.target.value }), className: inputClass })), /* @__PURE__ */ React.createElement(Field, { label: "Unit" }, /* @__PURE__ */ React.createElement("select", { value: form.unit, onChange: (e) => setForm({ ...form, unit: e.target.value }), className: inputClass }, UNITS.map((u) => /* @__PURE__ */ React.createElement("option", { key: u, value: u }, u))))), error && /* @__PURE__ */ React.createElement("p", { className: "text-red-600 text-sm" }, error), /* @__PURE__ */ React.createElement("div", { className: "flex justify-end gap-2 pt-1" }, /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setDialog(null), className: "px-4 py-2 rounded-lg text-sm font-medium text-stone-600 hover:bg-stone-100" }, "Cancel"), /* @__PURE__ */ React.createElement("button", { type: "submit", className: "px-4 py-2 rounded-lg text-sm font-medium text-white bg-green-700 hover:bg-green-800" }, "Save")))));
+}
+function emptyTaskForm() {
+  return { plotId: "", taskType: "Spray", date: todayKey(), labourerIds: [], products: [{ name: "", quantity: "" }], note: "" };
+}
+function TasksPage({ tasks, plots, labourers, resources, createTask, completeTask, pushToast, requestPassword }) {
+  const [dialog, setDialog] = useState(false);
+  const [pending, setPending] = useState(null);
+  const [form, setForm] = useState(emptyTaskForm());
+  const [busy, setBusy] = useState(false);
+  function openAdd() {
+    setForm(emptyTaskForm());
+    setDialog(true);
+  }
+  function toggleLabourer(id) {
+    setForm((f) => ({ ...f, labourerIds: f.labourerIds.includes(id) ? f.labourerIds.filter((x) => x !== id) : [...f.labourerIds, id] }));
+  }
+  function updateProduct(i, key, value) {
+    setForm((f) => {
+      const products = [...f.products];
+      products[i] = { ...products[i], [key]: value };
+      return { ...f, products };
+    });
+  }
+  function addProductRow() {
+    setForm((f) => ({ ...f, products: [...f.products, { name: "", quantity: "" }] }));
+  }
+  function removeProductRow(i) {
+    setForm((f) => ({ ...f, products: f.products.filter((_, idx) => idx !== i) }));
+  }
+  function reviewSubmit(e) {
+    e.preventDefault();
+    if (!form.plotId || !form.date) {
+      pushToast("Plot and date are required.", "error");
+      return;
+    }
+    setPending(form);
+  }
+  async function confirmCreate() {
+    setBusy(true);
+    const plot = plots.find((p) => p.plotId === pending.plotId);
+    try {
+      const result = await createTask(pending, plot);
+      result.messages.forEach((m) => pushToast(m.text, m.type));
+      pushToast(`Task created on ${plot ? plot.plotName : "plot"}.`);
+      setPending(null);
+      setDialog(false);
+    } catch (err) {
+      pushToast("Could not create task \u2014 check your connection.", "error");
+    }
+    setBusy(false);
+  }
+  function markComplete(t) {
+    requestPassword("mark this task as complete", async () => {
+      try {
+        await completeTask(t._id);
+        pushToast(`Task ${t.taskId} marked complete.`);
+      } catch (err) {
+        pushToast("Could not update \u2014 check your connection.", "error");
+      }
+    });
+  }
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(PageHeader, { title: "Tasks", subtitle: "Plan and track every farm activity.", action: { label: "Add Task", onClick: openAdd } }), tasks.length === 0 ? /* @__PURE__ */ React.createElement(EmptyState, { icon: ClipboardList, title: "No tasks yet", subtitle: 'Tap "Add Task" to plan your first farm activity.' }) : /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" }, [...tasks].reverse().map((t) => /* @__PURE__ */ React.createElement("div", { key: t._id, className: `bg-white rounded-xl border border-stone-200 border-l-4 ${t.status === "Completed" ? "border-l-green-500" : "border-l-amber-400"} p-4 shadow-sm` }, /* @__PURE__ */ React.createElement("div", { className: "flex items-start justify-between mb-2" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "font-semibold text-stone-800" }, t.plotName), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-500" }, t.taskType, " \xB7 ", t.date)), /* @__PURE__ */ React.createElement(Badge, { tone: t.status === "Completed" ? "green" : "amber" }, t.status)), t.labourerIds.length > 0 && /* @__PURE__ */ React.createElement("p", { className: "text-xs text-stone-500 mb-1" }, "Labourers: ", t.labourerIds.map((id) => labourers.find((l) => l.labourId === id)?.name).filter(Boolean).join(", ")), t.products.length > 0 && /* @__PURE__ */ React.createElement("p", { className: "text-xs text-stone-500 mb-1" }, "Products: ", t.products.map((p) => `${p.name} (${p.quantity})`).join(", ")), t.note && /* @__PURE__ */ React.createElement("p", { className: "text-xs text-stone-500 mb-1" }, "Note: ", t.note), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-stone-400 mt-2 font-mono" }, t.taskId), t.status === "Pending" && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => markComplete(t),
+      className: "mt-3 w-full text-center text-sm font-medium text-green-700 border border-green-200 rounded-lg py-1.5 hover:bg-green-50"
+    },
+    "Mark Complete"
+  )))), dialog && /* @__PURE__ */ React.createElement(Modal, { title: "Add Task", onClose: () => setDialog(false), wide: true }, /* @__PURE__ */ React.createElement("form", { onSubmit: reviewSubmit, className: "space-y-4" }, /* @__PURE__ */ React.createElement(Field, { label: "Plot" }, /* @__PURE__ */ React.createElement("select", { value: form.plotId, onChange: (e) => setForm({ ...form, plotId: e.target.value }), className: inputClass }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Select a plot"), plots.map((p) => /* @__PURE__ */ React.createElement("option", { key: p.plotId, value: p.plotId }, p.plotName)))), /* @__PURE__ */ React.createElement(Field, { label: "Task Type" }, /* @__PURE__ */ React.createElement("select", { value: form.taskType, onChange: (e) => setForm({ ...form, taskType: e.target.value }), className: inputClass }, TASK_TYPES.map((tt) => /* @__PURE__ */ React.createElement("option", { key: tt, value: tt }, tt)))), /* @__PURE__ */ React.createElement(Field, { label: "Date" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: form.date, onChange: (e) => setForm({ ...form, date: e.target.value }), className: inputClass })), /* @__PURE__ */ React.createElement(Field, { label: "Labourers" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-32 overflow-y-auto border border-stone-200 rounded-lg p-2" }, labourers.length === 0 && /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-400 col-span-3" }, "No labourers registered yet."), labourers.map((l) => /* @__PURE__ */ React.createElement("label", { key: l.labourId, className: "flex items-center gap-2 text-sm text-stone-600" }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: form.labourerIds.includes(l.labourId), onChange: () => toggleLabourer(l.labourId), className: "rounded" }), l.name)))), (form.taskType === "Spray" || form.taskType === "Fertigation") && /* @__PURE__ */ React.createElement(Field, { label: form.taskType === "Fertigation" ? "Fertilizer & Quantity" : "Product & Quantity" }, /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, form.products.map((p, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "flex gap-2" }, form.taskType === "Fertigation" ? /* @__PURE__ */ React.createElement("select", { value: p.name, onChange: (e) => updateProduct(i, "name", e.target.value), className: `${inputClass} flex-1` }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Select fertilizer"), resources.filter((r) => r.category === "Fertilizer").map((r) => /* @__PURE__ */ React.createElement("option", { key: r.resourceId, value: r.name }, r.name, " (", r.quantity, " ", r.unit, " in stock)"))) : /* @__PURE__ */ React.createElement("input", { value: p.name, onChange: (e) => updateProduct(i, "name", e.target.value), placeholder: "Product name", className: `${inputClass} flex-1` }), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", value: p.quantity, onChange: (e) => updateProduct(i, "quantity", e.target.value), placeholder: "Qty", className: `${inputClass} w-24` }), form.products.length > 1 && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => removeProductRow(i), className: "text-stone-400 hover:text-red-600 px-1" }, /* @__PURE__ */ React.createElement(X, { size: 16 })))), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: addProductRow, className: "text-sm text-green-700 font-medium hover:underline" }, "+ Add another"))), (form.taskType === "Irrigation" || form.taskType === "Others") && /* @__PURE__ */ React.createElement(Field, { label: "Note" }, /* @__PURE__ */ React.createElement("textarea", { value: form.note, onChange: (e) => setForm({ ...form, note: e.target.value }), rows: 3, className: inputClass, placeholder: "Describe the activity..." })), /* @__PURE__ */ React.createElement("div", { className: "flex justify-end gap-2 pt-1" }, /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setDialog(false), className: "px-4 py-2 rounded-lg text-sm font-medium text-stone-600 hover:bg-stone-100" }, "Cancel"), /* @__PURE__ */ React.createElement("button", { type: "submit", className: "px-4 py-2 rounded-lg text-sm font-medium text-white bg-green-700 hover:bg-green-800" }, "Review & Create")))), pending && /* @__PURE__ */ React.createElement(Modal, { title: "Confirm Task", onClose: () => setPending(null) }, /* @__PURE__ */ React.createElement("div", { className: "space-y-2 text-sm text-stone-600 mb-5" }, /* @__PURE__ */ React.createElement("p", null, /* @__PURE__ */ React.createElement("span", { className: "font-medium text-stone-800" }, "Plot:"), " ", plots.find((p) => p.plotId === pending.plotId)?.plotName), /* @__PURE__ */ React.createElement("p", null, /* @__PURE__ */ React.createElement("span", { className: "font-medium text-stone-800" }, "Type:"), " ", pending.taskType), /* @__PURE__ */ React.createElement("p", null, /* @__PURE__ */ React.createElement("span", { className: "font-medium text-stone-800" }, "Date:"), " ", pending.date), /* @__PURE__ */ React.createElement("p", null, /* @__PURE__ */ React.createElement("span", { className: "font-medium text-stone-800" }, "Labourers:"), " ", pending.labourerIds.length ? pending.labourerIds.map((id) => labourers.find((l) => l.labourId === id)?.name).filter(Boolean).join(", ") : "None assigned"), (pending.taskType === "Spray" || pending.taskType === "Fertigation") && /* @__PURE__ */ React.createElement("p", null, /* @__PURE__ */ React.createElement("span", { className: "font-medium text-stone-800" }, "Products:"), " ", pending.products.filter((p) => p.name).map((p) => `${p.name} (${p.quantity || 0})`).join(", ") || "None"), (pending.taskType === "Irrigation" || pending.taskType === "Others") && pending.note && /* @__PURE__ */ React.createElement("p", null, /* @__PURE__ */ React.createElement("span", { className: "font-medium text-stone-800" }, "Note:"), " ", pending.note)), /* @__PURE__ */ React.createElement("div", { className: "flex justify-end gap-2" }, /* @__PURE__ */ React.createElement("button", { onClick: () => setPending(null), className: "px-4 py-2 rounded-lg text-sm font-medium text-stone-600 hover:bg-stone-100" }, "Back"), /* @__PURE__ */ React.createElement("button", { onClick: confirmCreate, disabled: busy, className: "px-4 py-2 rounded-lg text-sm font-medium text-white bg-green-700 hover:bg-green-800 disabled:opacity-60" }, busy ? "Creating\u2026" : "Create Task"))));
+}
+function AttendancePage({ attendance, labourers, saveAttendance, pushToast, requestPassword }) {
+  const tKey = todayKey();
+  const yKey = yesterdayKey();
+  const [form, setForm] = useState({ date: tKey, labourId: "", status: "Present", reason: "" });
+  const markedToday = attendance.filter((a) => a.date === tKey);
+  const markedYesterday = attendance.filter((a) => a.date === yKey);
+  function statsFor(marked) {
+    const present = marked.filter((a) => a.status === "Present").length;
+    const absent = marked.filter((a) => a.status === "Absent").length;
+    const notMarked = Math.max(labourers.length - marked.length, 0);
+    return { present, absent, notMarked };
+  }
+  const todayStats = statsFor(markedToday);
+  const yesterdayStats = statsFor(markedYesterday);
+  const markedIdsForDate = attendance.filter((a) => a.date === form.date).map((a) => a.labourId);
+  const availableLabourers = labourers.filter((l) => !markedIdsForDate.includes(l.labourId));
+  function submit(e) {
+    e.preventDefault();
+    if (!form.labourId) {
+      pushToast("Choose a labourer.", "error");
+      return;
+    }
+    if (form.status === "Absent" && !form.reason.trim()) {
+      pushToast("A reason is required for an absence.", "error");
+      return;
+    }
+    requestPassword("mark attendance", async () => {
+      const labourer = labourers.find((l) => l.labourId === form.labourId);
+      try {
+        await saveAttendance({ date: form.date, labourId: form.labourId, labourName: labourer.name, status: form.status, reason: form.status === "Absent" ? form.reason.trim() : "" });
+        pushToast(`${labourer.name} marked ${form.status.toLowerCase()} for ${form.date === tKey ? "today" : "yesterday"}.`);
+        setForm({ date: form.date, labourId: "", status: "Present", reason: "" });
+      } catch (err) {
+        pushToast("Could not save \u2014 check your connection.", "error");
+      }
+    });
+  }
+  const groupedRecords = [
+    { label: "Today", key: tKey, records: markedToday },
+    { label: "Yesterday", key: yKey, records: markedYesterday }
+  ];
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(PageHeader, { title: "Attendance", subtitle: "Daily present / absent tracking." }), /* @__PURE__ */ React.createElement("h2", { className: "text-sm font-semibold text-stone-500 uppercase tracking-wide mb-3" }, "Today \u2014 ", prettyDate(tKey)), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6" }, /* @__PURE__ */ React.createElement(StatCard, { icon: CheckCircle2, label: "Present", value: todayStats.present, tone: "green" }), /* @__PURE__ */ React.createElement(StatCard, { icon: AlertTriangle, label: "Absent", value: todayStats.absent, tone: "amber" }), /* @__PURE__ */ React.createElement(StatCard, { icon: Clock, label: "Not Marked", value: todayStats.notMarked, tone: "blue" })), /* @__PURE__ */ React.createElement("h2", { className: "text-sm font-semibold text-stone-500 uppercase tracking-wide mb-3" }, "Yesterday \u2014 ", prettyDate(yKey)), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8" }, /* @__PURE__ */ React.createElement(StatCard, { icon: CheckCircle2, label: "Present", value: yesterdayStats.present, tone: "green" }), /* @__PURE__ */ React.createElement(StatCard, { icon: AlertTriangle, label: "Absent", value: yesterdayStats.absent, tone: "amber" }), /* @__PURE__ */ React.createElement(StatCard, { icon: Clock, label: "Not Marked", value: yesterdayStats.notMarked, tone: "blue" })), /* @__PURE__ */ React.createElement("div", { className: "bg-white rounded-xl border border-stone-200 p-5 shadow-sm mb-8" }, /* @__PURE__ */ React.createElement("h3", { className: "font-semibold text-stone-800 mb-4" }, "Mark Attendance"), labourers.length === 0 ? /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-400" }, "Add labourers first before marking attendance.") : /* @__PURE__ */ React.createElement("form", { onSubmit: submit, className: "grid grid-cols-1 sm:grid-cols-2 gap-4" }, /* @__PURE__ */ React.createElement(Field, { label: "Date" }, /* @__PURE__ */ React.createElement("select", { value: form.date, onChange: (e) => setForm({ ...form, date: e.target.value, labourId: "" }), className: inputClass }, /* @__PURE__ */ React.createElement("option", { value: tKey }, "Today \u2014 ", prettyDate(tKey)), /* @__PURE__ */ React.createElement("option", { value: yKey }, "Yesterday \u2014 ", prettyDate(yKey)))), /* @__PURE__ */ React.createElement(Field, { label: "Labourer" }, /* @__PURE__ */ React.createElement("select", { value: form.labourId, onChange: (e) => setForm({ ...form, labourId: e.target.value }), className: inputClass }, /* @__PURE__ */ React.createElement("option", { value: "" }, availableLabourers.length ? "Select labourer" : "All labourers already marked"), availableLabourers.map((l) => /* @__PURE__ */ React.createElement("option", { key: l.labourId, value: l.labourId }, l.name)))), /* @__PURE__ */ React.createElement(Field, { label: "Status" }, /* @__PURE__ */ React.createElement("div", { className: "flex gap-3 pt-1" }, /* @__PURE__ */ React.createElement("label", { className: "flex items-center gap-2 text-sm text-stone-600" }, /* @__PURE__ */ React.createElement("input", { type: "radio", checked: form.status === "Present", onChange: () => setForm({ ...form, status: "Present" }) }), " Present"), /* @__PURE__ */ React.createElement("label", { className: "flex items-center gap-2 text-sm text-stone-600" }, /* @__PURE__ */ React.createElement("input", { type: "radio", checked: form.status === "Absent", onChange: () => setForm({ ...form, status: "Absent" }) }), " Absent"))), form.status === "Absent" && /* @__PURE__ */ React.createElement(Field, { label: "Reason" }, /* @__PURE__ */ React.createElement("input", { value: form.reason, onChange: (e) => setForm({ ...form, reason: e.target.value }), placeholder: "Reason for absence", className: inputClass })), /* @__PURE__ */ React.createElement("div", { className: "sm:col-span-2" }, /* @__PURE__ */ React.createElement("button", { type: "submit", disabled: !availableLabourers.length, className: "bg-green-700 hover:bg-green-800 disabled:bg-stone-300 text-white text-sm font-medium px-4 py-2.5 rounded-lg" }, "Mark Attendance")))), groupedRecords.map((g) => /* @__PURE__ */ React.createElement("div", { key: g.key, className: "mb-6" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold text-stone-500 uppercase tracking-wide mb-3" }, g.label, "'s records"), g.records.length === 0 ? /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-400" }, "No attendance marked yet.") : /* @__PURE__ */ React.createElement("div", { className: "bg-white rounded-xl border border-stone-200 divide-y divide-stone-100 shadow-sm" }, g.records.map((r) => /* @__PURE__ */ React.createElement("div", { key: r._id, className: "flex items-center justify-between px-4 py-3" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "text-sm font-medium text-stone-800" }, r.labourName), r.reason && /* @__PURE__ */ React.createElement("p", { className: "text-xs text-stone-400" }, r.reason)), /* @__PURE__ */ React.createElement(Badge, { tone: r.status === "Present" ? "green" : "red" }, r.status)))))));
+}
+const FIREBASE_FIELDS = [
+  { key: "apiKey", label: "API Key" },
+  { key: "authDomain", label: "Auth Domain" },
+  { key: "projectId", label: "Project ID" },
+  { key: "storageBucket", label: "Storage Bucket" },
+  { key: "messagingSenderId", label: "Messaging Sender ID" },
+  { key: "appId", label: "App ID" }
+];
+function FirebaseSetupForm({ onSubmit, error }) {
+  const [form, setForm] = useState({ apiKey: "", authDomain: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: "" });
+  const [localError, setLocalError] = useState("");
+  function update(key, value) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+  function submit(e) {
+    e.preventDefault();
+    const cleaned = {};
+    FIREBASE_FIELDS.forEach((f) => {
+      cleaned[f.key] = form[f.key].trim();
+    });
+    const missing = FIREBASE_FIELDS.filter((f) => !cleaned[f.key]);
+    if (missing.length) {
+      setLocalError(`Please fill in: ${missing.map((f) => f.label).join(", ")}`);
+      return;
+    }
+    setLocalError("");
+    onSubmit(cleaned);
+  }
+  return /* @__PURE__ */ React.createElement("div", { className: "min-h-screen bg-stone-50 flex items-center justify-center p-6" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-md w-full bg-white rounded-2xl border border-stone-200 shadow-sm p-6" }, /* @__PURE__ */ React.createElement("div", { className: "w-11 h-11 rounded-lg bg-green-50 text-green-700 flex items-center justify-center mb-4" }, /* @__PURE__ */ React.createElement(Sprout, { size: 22 })), /* @__PURE__ */ React.createElement("h1", { className: "text-lg font-bold text-stone-800 mb-2" }, "Connect your Firebase project"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-600 mb-4" }, "Paste the 6 values from your Firebase project (Project settings \u2192 Your apps \u2192 the web app you registered). You only need to do this once per device \u2014 it's remembered after that."), /* @__PURE__ */ React.createElement("form", { onSubmit: submit, className: "space-y-3" }, FIREBASE_FIELDS.map((f) => /* @__PURE__ */ React.createElement(Field, { key: f.key, label: f.label }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      value: form[f.key],
+      onChange: (e) => update(f.key, e.target.value),
+      className: inputClass,
+      autoCapitalize: "none",
+      autoCorrect: "off",
+      spellCheck: "false"
+    }
+  ))), (localError || error) && /* @__PURE__ */ React.createElement("p", { className: "text-red-600 text-sm" }, localError || error), /* @__PURE__ */ React.createElement("button", { type: "submit", className: "w-full bg-green-700 hover:bg-green-800 text-white text-sm font-medium px-4 py-2.5 rounded-lg" }, "Connect"))));
+}
+function SetupError({ reason, onRetry }) {
+  return /* @__PURE__ */ React.createElement("div", { className: "min-h-screen bg-stone-50 flex items-center justify-center p-6" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-md w-full bg-white rounded-2xl border border-stone-200 shadow-sm p-6" }, /* @__PURE__ */ React.createElement("div", { className: "w-11 h-11 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mb-4" }, /* @__PURE__ */ React.createElement(Settings, { size: 22 })), /* @__PURE__ */ React.createElement("h1", { className: "text-lg font-bold text-stone-800 mb-2" }, "Couldn't connect"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-600 mb-4" }, reason), /* @__PURE__ */ React.createElement("button", { onClick: onRetry, className: "w-full bg-green-700 hover:bg-green-800 text-white text-sm font-medium px-4 py-2.5 rounded-lg" }, "Re-enter Firebase details")));
+}
+function App() {
+  const [activeView, setActiveView] = useState("dashboard");
+  const [plots, setPlots] = useState([]);
+  const [labourers, setLabourers] = useState([]);
+  const [resources, setResources] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const [confirmState, setConfirmState] = useState(null);
+  const [passwordState, setPasswordState] = useState(null);
+  const [fbReady, setFbReady] = useState(false);
+  const [fbError, setFbError] = useState(null);
+  const [online, setOnline] = useState(navigator.onLine);
+  const [lastExportAt, setLastExportAt] = useState(null);
+  const [exportReady, setExportReady] = useState(false);
+  const resourcesRef = useRef(resources);
+  resourcesRef.current = resources;
+  const pushToast = useCallback((message, type = "success") => {
+    const id = Date.now() + Math.random();
+    setToasts((t) => [...t, { id, message, type }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4e3);
+  }, []);
+  const confirm = useCallback((cfg) => setConfirmState(cfg), []);
+  const requestPassword = useCallback((label, onSuccess) => setPasswordState({ label, onSuccess }), []);
+  useEffect(() => {
+    function onReady() {
+      setFbReady(true);
+    }
+    function onErr(e) {
+      setFbError(e && e.detail && e.detail.message || "Could not connect to Firebase.");
+    }
+    if (window.__fbReady) setFbReady(true);
+    window.addEventListener("firebase-ready", onReady);
+    window.addEventListener("firebase-auth-error", onErr);
+    return () => {
+      window.removeEventListener("firebase-ready", onReady);
+      window.removeEventListener("firebase-auth-error", onErr);
+    };
+  }, []);
+  useEffect(() => {
+    function goOnline() {
+      setOnline(true);
+    }
+    function goOffline() {
+      setOnline(false);
+    }
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
+  useEffect(() => {
+    if (!fbReady) return;
+    const { db, collection, onSnapshot } = window.fb;
+    const withId = (snap) => snap.docs.map((d) => ({ ...d.data(), _id: d.id }));
+    const unsubs = [
+      onSnapshot(collection(db, "plots"), (s) => setPlots(withId(s))),
+      onSnapshot(collection(db, "labourers"), (s) => setLabourers(withId(s))),
+      onSnapshot(collection(db, "resources"), (s) => setResources(withId(s))),
+      onSnapshot(collection(db, "tasks"), (s) => setTasks(withId(s))),
+      onSnapshot(collection(db, "attendance"), (s) => setAttendance(withId(s)))
+    ];
+    setLoaded(true);
+    return () => unsubs.forEach((u) => u());
+  }, [fbReady]);
+  useEffect(() => {
+    let stored = null;
+    try {
+      stored = localStorage.getItem("rr-farm-last-export");
+    } catch (e) {
+    }
+    const t = stored || todayKey();
+    setLastExportAt(t);
+    if (!stored) {
+      try {
+        localStorage.setItem("rr-farm-last-export", t);
+      } catch (e) {
+      }
+    }
+  }, []);
+  useEffect(() => {
+    if (!lastExportAt) return;
+    if (daysBetween(lastExportAt, todayKey()) >= EXPORT_INTERVAL_DAYS) setExportReady(true);
+  }, [lastExportAt]);
+  function runExport() {
+    const periodEnd = todayKey();
+    const report = buildReport(lastExportAt, periodEnd, { plots, labourers, resources, tasks, attendance });
+    downloadTextFile(`farm-report_${lastExportAt}_to_${periodEnd}.txt`, report);
+    setLastExportAt(periodEnd);
+    try {
+      localStorage.setItem("rr-farm-last-export", periodEnd);
+    } catch (e) {
+    }
+    setExportReady(false);
+    pushToast("Report saved to your device \u2014 check your Downloads folder.");
+  }
+  async function savePlot(data) {
+    const { db, doc, setDoc } = window.fb;
+    await setDoc(doc(db, "plots", data.plotId), data, { merge: true });
+  }
+  async function deletePlot(plotId) {
+    const { db, doc, deleteDoc } = window.fb;
+    await deleteDoc(doc(db, "plots", plotId));
+  }
+  async function saveLabourer(data) {
+    const { db, doc, setDoc } = window.fb;
+    await setDoc(doc(db, "labourers", data.labourId), data, { merge: true });
+  }
+  async function deleteLabourer(labourId) {
+    const { db, doc, deleteDoc } = window.fb;
+    await deleteDoc(doc(db, "labourers", labourId));
+  }
+  async function saveResource(data) {
+    const { db, doc, setDoc } = window.fb;
+    await setDoc(doc(db, "resources", data.resourceId), data, { merge: true });
+  }
+  async function deleteResource(resourceId) {
+    const { db, doc, deleteDoc } = window.fb;
+    await deleteDoc(doc(db, "resources", resourceId));
+  }
+  async function saveAttendance(data) {
+    const { db, collection, addDoc } = window.fb;
+    await addDoc(collection(db, "attendance"), data);
+  }
+  async function completeTask(taskDocId) {
+    const { db, doc, updateDoc } = window.fb;
+    await updateDoc(doc(db, "tasks", taskDocId), { status: "Completed" });
+  }
+  async function createTask(pending, plot) {
+    const { db, doc, collection, runTransaction } = window.fb;
+    const taskId = nextId(tasks, "taskId", "task", 3, 1);
+    const productsToProcess = pending.products.filter((p) => p.name.trim());
+    const messages = [];
+    await runTransaction(db, async (tx) => {
+      const productsRecord = [];
+      const reads = {};
+      if (pending.taskType === "Fertigation") {
+        for (const p of productsToProcess) {
+          const baseline = resourcesRef.current.find((r) => r.category === "Fertilizer" && r.name.toLowerCase() === p.name.trim().toLowerCase());
+          if (baseline) {
+            const ref = doc(db, "resources", baseline.resourceId);
+            const snap = await tx.get(ref);
+            if (snap.exists()) reads[p.name.trim().toLowerCase()] = { ref, data: snap.data() };
+          }
+        }
+      }
+      productsToProcess.forEach((p) => {
+        const qty = Number(p.quantity) || 0;
+        productsRecord.push({ name: p.name.trim(), quantity: qty });
+        if (pending.taskType === "Fertigation" && qty > 0) {
+          const key = p.name.trim().toLowerCase();
+          const found = reads[key];
+          if (found && Number(found.data.quantity) >= qty) {
+            tx.update(found.ref, { quantity: Number(found.data.quantity) - qty });
+            messages.push({ text: `${qty} ${found.data.unit} of ${found.data.name} deducted from inventory.`, type: "success" });
+          } else {
+            messages.push({ text: `Insufficient stock for ${p.name.trim()} \u2014 task created without deduction.`, type: "error" });
+          }
+        }
+      });
+      const taskRef = doc(collection(db, "tasks"));
+      tx.set(taskRef, {
+        taskId,
+        plotId: pending.plotId,
+        plotName: plot ? plot.plotName : "",
+        taskType: pending.taskType,
+        date: pending.date,
+        labourerIds: pending.labourerIds,
+        products: productsRecord,
+        note: pending.note,
+        status: "Pending"
+      });
+    });
+    return { messages };
+  }
+  function resetAll() {
+    confirm({
+      title: "Reset all data?",
+      message: "This permanently deletes every plot, labourer, resource, task, and attendance record stored in Firestore for this project. This cannot be undone.",
+      confirmLabel: "Reset everything",
+      tone: "danger",
+      onConfirm: async () => {
+        const { db, doc, deleteDoc } = window.fb;
+        try {
+          await Promise.all([
+            ...plots.map((p) => deleteDoc(doc(db, "plots", p.plotId))),
+            ...labourers.map((l) => deleteDoc(doc(db, "labourers", l.labourId))),
+            ...resources.map((r) => deleteDoc(doc(db, "resources", r.resourceId))),
+            ...tasks.map((t) => deleteDoc(doc(db, "tasks", t._id))),
+            ...attendance.map((a) => deleteDoc(doc(db, "attendance", a._id)))
+          ]);
+          pushToast("All data has been reset.", "error");
+        } catch (err) {
+          pushToast("Could not reset everything \u2014 check your connection and try again.", "error");
+        }
+      }
+    });
+  }
+  if (fbError) {
+    return /* @__PURE__ */ React.createElement("div", { className: "min-h-screen bg-stone-50 flex items-center justify-center p-6" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-md w-full bg-white rounded-2xl border border-stone-200 shadow-sm p-6" }, /* @__PURE__ */ React.createElement("p", { className: "font-semibold text-stone-800 mb-2" }, "Connection error"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-600" }, fbError), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-stone-400 mt-3" }, "Check that Anonymous sign-in is enabled in Firebase \u2192 Authentication \u2192 Sign-in method, then reload this page.")));
+  }
+  const pages = {
+    dashboard: /* @__PURE__ */ React.createElement(DashboardPage, { plots, labourers, tasks }),
+    plots: /* @__PURE__ */ React.createElement(PlotsPage, { plots, savePlot, deletePlot, pushToast, confirm }),
+    labour: /* @__PURE__ */ React.createElement(LabourPage, { labourers, saveLabourer, deleteLabourer, pushToast, confirm }),
+    tasks: /* @__PURE__ */ React.createElement(
+      TasksPage,
+      {
+        tasks,
+        plots,
+        labourers,
+        resources,
+        createTask,
+        completeTask,
+        pushToast,
+        requestPassword
+      }
+    ),
+    resources: /* @__PURE__ */ React.createElement(ResourcesPage, { resources, saveResource, deleteResource, pushToast, confirm, requestPassword }),
+    attendance: /* @__PURE__ */ React.createElement(AttendancePage, { attendance, labourers, saveAttendance, pushToast, requestPassword })
+  };
+  return /* @__PURE__ */ React.createElement("div", { className: "min-h-screen bg-stone-50 flex flex-col md:flex-row" }, /* @__PURE__ */ React.createElement(Sidebar, { active: activeView, onChange: setActiveView, onReset: resetAll, onExportNow: runExport, online }), /* @__PURE__ */ React.createElement("main", { className: "flex-1 md:ml-60 p-4 sm:p-6 lg:p-8" }, /* @__PURE__ */ React.createElement("div", { className: "flex md:hidden items-center justify-between gap-2 mb-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement(Sprout, { size: 20, className: "text-green-700" }), /* @__PURE__ */ React.createElement("span", { className: "font-bold text-stone-800" }, "Farm Manager")), online ? /* @__PURE__ */ React.createElement(Wifi, { size: 16, className: "text-green-600" }) : /* @__PURE__ */ React.createElement(WifiOff, { size: 16, className: "text-amber-600" })), !online && /* @__PURE__ */ React.createElement("div", { className: "mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700 flex items-center gap-2" }, /* @__PURE__ */ React.createElement(WifiOff, { size: 14, className: "shrink-0" }), " You're offline \u2014 changes will sync once you're back online."), exportReady && /* @__PURE__ */ React.createElement("div", { className: "mb-5 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement(FileDown, { className: "text-blue-600 shrink-0", size: 20 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "font-semibold text-blue-800 text-sm" }, "Your ", EXPORT_INTERVAL_DAYS, "-day report is ready"), /* @__PURE__ */ React.createElement("p", { className: "text-blue-600 text-xs" }, "Covers ", lastExportAt, " to ", todayKey(), ". Tap to save it to your device."))), /* @__PURE__ */ React.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React.createElement("button", { onClick: () => setExportReady(false), className: "text-xs font-medium text-blue-600 px-3 py-2 hover:bg-blue-100 rounded-lg" }, "Later"), /* @__PURE__ */ React.createElement("button", { onClick: runExport, className: "text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-lg" }, "Download"))), !loaded ? /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center h-64 text-stone-400 text-sm" }, "Connecting to your farm data\u2026") : pages[activeView]), confirmState && /* @__PURE__ */ React.createElement(ConfirmModal, { ...confirmState, onClose: () => setConfirmState(null) }), passwordState && /* @__PURE__ */ React.createElement(PasswordModal, { actionLabel: passwordState.label, onSuccess: passwordState.onSuccess, onClose: () => setPasswordState(null) }), /* @__PURE__ */ React.createElement(ToastStack, { toasts }));
+}
+ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(App, null));
+</script>
+</body>
+</html>
